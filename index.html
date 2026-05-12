@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CryptoWallet" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <title>CryptoWallet — System Design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --bg:        #0a0f1e;
+      --bg2:       #111827;
+      --bg3:       #1a2235;
+      --border:    rgba(255,255,255,0.07);
+      --border2:   rgba(255,255,255,0.13);
+      --text:      #e8eaf0;
+      --text2:     #8a93a8;
+      --text3:     #556070;
+      --green:     #00d4aa;
+      --green-dim: rgba(0,212,170,0.12);
+      --blue:      #4f8ef7;
+      --blue-dim:  rgba(79,142,247,0.12);
+      --amber:     #f5a623;
+      --amber-dim: rgba(245,166,35,0.12);
+      --red:       #f25c5c;
+      --red-dim:   rgba(242,92,92,0.12);
+      --purple:    #9b6dff;
+      --purple-dim:rgba(155,109,255,0.12);
+      --teal:      #22d3ee;
+      --radius:    10px;
+      --radius-lg: 14px;
+      --font-head: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 20px;
+      height: 52px;
+      background: rgba(10,15,30,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      font-family: var(--font-head);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+    }
+    .brand-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--green), var(--teal));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: #0a0f1e;
+    }
+    .brand span { color: var(--green); }
+    .nav-tabs {
+      display: flex;
+      gap: 2px;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+    .tab {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text2);
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .tab i { font-size: 12px; }
+    .tab:hover { background: var(--bg3); color: var(--text); }
+    .tab.active { background: var(--bg3); color: var(--green); border: 1px solid var(--border2); }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .chain-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 5px;
+      border: 1px solid var(--border2);
+      color: var(--text2);
+    }
+    .dot-live {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── PAGES ── */
+    .page { display: none; padding: 20px; animation: fadeIn 0.2s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── PAGE HEADER ── */
+    .page-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .page-title {
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .page-title i { color: var(--green); font-size: 16px; }
+    .page-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      font-family: var(--font-body);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--border); color: var(--green); border-color: var(--green); }
+    .btn-primary {
+      background: var(--green);
+      color: #0a0f1e;
+      border-color: transparent;
+      font-weight: 500;
+    }
+    .btn-primary:hover { opacity: 0.85; color: #0a0f1e; }
+
+    /* ── STAT CARDS ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: var(--border2); }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .stat-val {
+      font-family: var(--font-head);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-meta { font-size: 11px; color: var(--text3); }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .card-head {
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-head-left { display: flex; align-items: center; gap: 7px; }
+    .card-head i { color: var(--green); font-size: 13px; }
+
+    /* ── GRID LAYOUTS ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    @media (max-width: 700px) {
+      .two-col, .three-col { grid-template-columns: 1fr; }
+    }
+
+    /* ── TABLES ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text3);
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+    .badge-green  { background: var(--green-dim);  color: var(--green); }
+    .badge-blue   { background: var(--blue-dim);   color: var(--blue); }
+    .badge-amber  { background: var(--amber-dim);  color: var(--amber); }
+    .badge-red    { background: var(--red-dim);    color: var(--red); }
+    .badge-purple { background: var(--purple-dim); color: var(--purple); }
+    .badge-gray   { background: rgba(255,255,255,0.05); color: var(--text2); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green  { background: var(--green); }
+    .dot-amber  { background: var(--amber); }
+    .dot-red    { background: var(--red); }
+
+    /* ── MONO TEXT ── */
+    .mono { font-family: var(--font-mono); font-size: 11px; color: var(--text2); }
+
+    /* ── PILLS FILTER ── */
+    .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .pill {
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text2);
+      background: transparent;
+      transition: all 0.12s;
+    }
+    .pill:hover { border-color: var(--border2); color: var(--text); }
+    .pill.active { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+    /* ── BAR CHART ── */
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .bar-label { font-size: 12px; color: var(--text2); width: 90px; flex-shrink: 0; }
+    .bar-track {
+      flex: 1;
+      height: 5px;
+      background: var(--bg3);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+    .bar-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text2); width: 38px; text-align: right; }
+
+    /* ── MINI CHART ── */
+    .mini-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 52px;
+      padding: 4px 0;
+    }
+    .mini-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; justify-content: flex-end; }
+    .mini-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 3px; transition: height 0.4s; }
+    .bar-in  { background: var(--green); opacity: 0.85; }
+    .bar-out { background: var(--red);   opacity: 0.75; }
+    .legend-row { display: flex; gap: 14px; margin-top: 8px; }
+    .legend-item { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 5px; }
+    .legend-swatch { width: 10px; height: 4px; border-radius: 2px; }
+
+    /* ── FLOW NODES ── */
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .flow-node {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 10px;
+      text-align: center;
+      min-width: 100px;
+      flex: 1;
+      transition: border-color 0.2s;
+    }
+    .flow-node:hover { border-color: var(--green); }
+    .flow-node .fn-icon { font-size: 18px; margin-bottom: 6px; display: block; }
+    .flow-node .fn-label { font-size: 11px; font-weight: 600; color: var(--text); font-family: var(--font-head); }
+    .flow-node .fn-sub  { font-size: 10px; color: var(--text3); margin-top: 3px; }
+    .flow-arrow { color: var(--text3); padding: 0 5px; font-size: 12px; flex-shrink: 0; }
+
+    /* ── ALERT CARDS ── */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      border-left: 3px solid;
+    }
+    .alert-critical { background: var(--red-dim);    border-color: var(--red); }
+    .alert-warning  { background: var(--amber-dim);  border-color: var(--amber); }
+    .alert-ok       { background: var(--green-dim);  border-color: var(--green); }
+    .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .alert-critical .alert-icon { color: var(--red); }
+    .alert-warning  .alert-icon { color: var(--amber); }
+    .alert-ok       .alert-icon { color: var(--green); }
+    .alert-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+    .alert-desc  { font-size: 12px; color: var(--text2); }
+
+    /* ── ARCHITECTURE ── */
+    .arch-layer {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .arch-layer:hover { border-color: var(--border2); background: var(--bg3); }
+    .arch-layer-icon {
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .arch-layer-name { font-weight: 500; font-size: 13px; color: var(--text); }
+    .arch-layer-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .arch-layer-badge { margin-left: auto; }
+
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text3);
+      font-size: 11px;
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+
+    /* ── MOBILE NAV ── */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(10,15,30,0.96);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      padding: 8px 0 env(safe-area-inset-bottom);
+      z-index: 200;
+      justify-content: space-around;
+    }
+    .mobile-nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text3);
+      font-size: 10px;
+      padding: 4px 10px;
+      transition: color 0.15s;
+    }
+    .mobile-nav-btn i { font-size: 18px; }
+    .mobile-nav-btn.active { color: var(--green); }
+    @media (max-width: 600px) {
+      .mobile-nav { display: flex; }
+      body { padding-bottom: 70px; }
+      .nav-tabs { display: none; }
+      .topbar-right .chain-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══ -->
+<nav class="topbar">
+  <a class="brand" href="#">
+    <div class="brand-icon"><i class="fa-solid fa-bitcoin-sign"></i></div>
+    Crypto<span>Wallet</span>
+  </a>
+  <div class="nav-tabs">
+    <button class="tab active" onclick="switchTab(this,'overview')"><i class="fa-solid fa-chart-line"></i> Overview</button>
+    <button class="tab" onclick="switchTab(this,'wallets')"><i class="fa-solid fa-wallet"></i> Wallets</button>
+    <button class="tab" onclick="switchTab(this,'transactions')"><i class="fa-solid fa-arrows-left-right"></i> Transactions</button>
+    <button class="tab" onclick="switchTab(this,'security')"><i class="fa-solid fa-shield-halved"></i> Security</button>
+    <button class="tab" onclick="switchTab(this,'architecture')"><i class="fa-solid fa-network-wired"></i> Architecture</button>
+    <button class="tab" onclick="switchTab(this,'reports')"><i class="fa-solid fa-file-lines"></i> Reports</button>
+  </div>
+  <div class="topbar-right">
+    <span class="chain-badge">ETH</span>
+    <span class="chain-badge">BTC</span>
+    <span class="chain-badge">SOL</span>
+    <div class="dot-live" title="Live"></div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     PAGE 1 — OVERVIEW
+═══════════════════════════════════════════ -->
+<section id="overview" class="page active">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="fa-solid fa-chart-line"></i> System Overview</div>
+      <div class="page-sub">Live data · Last refreshed just now</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      <button class="btn btn-primary"><i class="fa-solid fa-download"></i> Export</button>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-wallet"></i> Total Wallets</div>
+      <div class="stat-val">2,847</div>
+      <div class="stat-meta"><span class="up">↑ +12%</span> vs last month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-coins"></i> Portfolio Value</div>
+      <div class="stat-val">$4.2M</div>
+      <div class="stat-meta"><span class="up">↑ +8.4%</span> in USD</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-repeat"></i> Daily Transactions</div>
+      <div class="stat-val">18,294</div>
+      <div class="stat-meta"><span class="down">↓ −3.1%</span> today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-shield-halved"></i> Security Score</div>
+      <div class="stat-val">94.7</div>
+      <div class="stat-meta"><span class="down">3 active alerts</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-arrow-trend-up"></i> 24h Inflow</div>
+      <div class="stat-val">$128K</div>
+      <div class="stat-meta"><span class="up">↑ +22%</span> received</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-arrow-trend-down"></i> 24h Outflow</div>
+      <div class="stat-val">$94K</div>
+      <div class="stat-meta"><span class="down">↓ sent &amp; expensed</span></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-left"><i class="fa-solid fa-chart-bar"></i> Monthly Flow (USD)</div>
+        <span style="font-size:11px;color:var(--text3)">6 months</span>
+      </div>
+      <div class="mini-chart" id="monthlyChart"></div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div>Inflow</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--red)"></div>Outflow</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:var(--font-mono);font-size:10px;color:var(--text3)">
+        <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-chart-pie"></i> Wallet Distribution</div></div>
+      <div class="bar-row">
+        <span class="bar-label">Hot Wallet</span>
+        <div class="bar-track"><div class="bar-fill" style="width:55%;background:var(--green)"></div></div>
+        <span class="bar-pct">55%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Cold Storage</span>
+        <div class="bar-track"><div class="bar-fill" style="width:28%;background:var(--blue)"></div></div>
+        <span class="bar-pct">28%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Custodial</span>
+        <div class="bar-track"><div class="bar-fill" style="width:12%;background:var(--amber)"></div></div>
+        <span class="bar-pct">12%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Multi-Sig</span>
+        <div class="bar-track"><div class="bar-fill" style="width:5%;background:var(--purple)"></div></div>
+        <span class="bar-pct">5%</span>
+      </div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <div class="card-head-left" style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px"><i class="fa-solid fa-link" style="color:var(--green)"></i> Chain Breakdown</div>
+        <div class="bar-row">
+          <span class="bar-label">Ethereum</span>
+          <div class="bar-track"><div class="bar-fill" style="width:48%;background:var(--purple)"></div></div>
+          <span class="bar-pct">48%</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Bitcoin</span>
+          <div class="bar-track"><div class="bar-fill" style="width:32%;background:var(--amber)"></div></div>
+          <span class="bar-pct">32%</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Solana</span>
+          <div class="bar-track"><div class="bar-fill" style="width:12%;background:var(--green)"></div></div>
+          <span class="bar-pct">12%</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">BNB Chain</span>
+          <div class="bar-track"><div class="bar-fill" style="width:8%;background:var(--blue)"></div></div>
+          <span class="bar-pct">8%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-left"><i class="fa-solid fa-clock-rotate-left"></i> Recent Transactions</div>
+      <button class="btn" onclick="switchTab(document.querySelector('[onclick*=transactions]'),'transactions')">View All →</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Hash</th><th>Type</th><th>From</th><th>To</th><th>Amount</th><th>Status</th><th>Time</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">0x3a8f…d91c</td>
+            <td><span class="badge badge-blue">Send</span></td>
+            <td class="mono">Treasury</td><td class="mono">0xB9…7C</td>
+            <td>1.42 ETH</td>
+            <td><span class="badge badge-green"><span class="dot dot-green"></span>Confirmed</span></td>
+            <td style="color:var(--text3);font-size:11px">2m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0xf72b…a034</td>
+            <td><span class="badge badge-green">Receive</span></td>
+            <td class="mono">0xC4…11</td><td class="mono">Reserve</td>
+            <td>0.075 BTC</td>
+            <td><span class="badge badge-amber"><span class="dot dot-amber"></span>Pending</span></td>
+            <td style="color:var(--text3);font-size:11px">5m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0x91ce…5b72</td>
+            <td><span class="badge badge-gray">Swap</span></td>
+            <td class="mono">Ops</td><td class="mono">Ops</td>
+            <td>320 USDT</td>
+            <td><span class="badge badge-green"><span class="dot dot-green"></span>Confirmed</span></td>
+            <td style="color:var(--text3);font-size:11px">8m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0x44da…c28f</td>
+            <td><span class="badge badge-blue">Send</span></td>
+            <td class="mono">Dev</td><td class="mono">0xH8…6A</td>
+            <td>0.5 SOL</td>
+            <td><span class="badge badge-red"><span class="dot dot-red"></span>Failed</span></td>
+            <td style="color:var(--text3);font-size:11px">12m ago</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE 2 — WALLETS
+═══════════════════════════════════════════ -->
+<section id="wallets" class="page">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="fa-solid fa-wallet"></i> Wallet Registry</div>
+      <div class="page-sub">Manage and monitor all connected wallets</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+      <button class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Wallet</button>
+    </div>
+  </div>
+
+  <div class="pill-row" id="walletFilter">
+    <span class="pill active" onclick="filterPills(this,'walletFilter')">All</span>
+    <span class="pill" onclick="filterPills(this,'walletFilter')">Hot</span>
+    <span class="pill" onclick="filterPills(this,'walletFilter')">Cold</span>
+    <span class="pill" onclick="filterPills(this,'walletFilter')">Custodial</span>
+    <span class="pill" onclick="filterPills(this,'walletFilter')">Multi-Sig</span>
+    <span class="pill" onclick="filterPills(this,'walletFilter')">Exchange</span>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Label</th><th>Address</th><th>Chain</th><th>Balance</th><th>USD Value</th><th>Type</th><th>Last Active</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:500">Treasury Main</td>
+            <td class="mono">0xA1b2…3F4e</td>
+            <td><span class="badge badge-purple">ETH</span></td>
+            <td>45.3 ETH</td><td>$162,800</td>
+            <td><span class="badge badge-gray">Cold</span></td>
+            <td style="color:var(--text3);font-size:11px">2h ago</td>
+            <td><span class="badge badge-green">Active</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Operations</td>
+            <td class="mono">0xB9c3…7Cd1</td>
+            <td><span class="badge badge-amber">BNB</span></td>
+            <td>200 BNB</td><td>$52,000</td>
+            <td><span class="badge badge-blue">Hot</span></td>
+            <td style="color:var(--text3);font-size:11px">5m ago</td>
+            <td><span class="badge badge-green">Active</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Payroll Pool</td>
+            <td class="mono">0xC4d8…11Ae</td>
+            <td><span class="badge badge-purple">ETH</span></td>
+            <td>8.1 ETH</td><td>$29,160</td>
+            <td><span class="badge badge-green">Multi-Sig</span></td>
+            <td style="color:var(--text3);font-size:11px">1d ago</td>
+            <td><span class="badge badge-amber">Low Bal.</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Reserve Cold</td>
+            <td class="mono">0xD2e9…8Ab4</td>
+            <td><span class="badge badge-amber">BTC</span></td>
+            <td>3.75 BTC</td><td>$241,000</td>
+            <td><span class="badge badge-gray">Cold</span></td>
+            <td style="color:var(--text3);font-size:11px">3d ago</td>
+            <td><span class="badge badge-green">Active</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Dev Sandbox</td>
+            <td class="mono">0xE7f1…5Da9</td>
+            <td><span class="badge badge-green">SOL</span></td>
+            <td>500 SOL</td><td>$37,500</td>
+            <td><span class="badge badge-blue">Hot</span></td>
+            <td style="color:var(--text3);font-size:11px">30m ago</td>
+            <td><span class="badge badge-gray">Test</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Investor Escrow</td>
+            <td class="mono">0xF3a2…9Bc7</td>
+            <td><span class="badge badge-purple">ETH</span></td>
+            <td>120 ETH</td><td>$432,000</td>
+            <td><span class="badge badge-green">Multi-Sig</span></td>
+            <td style="color:var(--text3);font-size:11px">7d ago</td>
+            <td><span class="badge badge-green">Active</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-circle-plus"></i> Add New Wallet</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">Wallet Address</label>
+          <input type="text" placeholder="0x... or bc1..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:var(--font-mono);font-size:12px;outline:none" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">Label</label>
+          <input type="text" placeholder="e.g. Treasury Main" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-size:13px;outline:none" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">Chain</label>
+            <select style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-size:12px;outline:none">
+              <option>Ethereum</option><option>Bitcoin</option><option>Solana</option><option>BNB Chain</option><option>Polygon</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">Type</label>
+            <select style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-size:12px;outline:none">
+              <option>Hot Wallet</option><option>Cold Storage</option><option>Custodial</option><option>Multi-Sig</option><option>Exchange</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:4px"><i class="fa-solid fa-plus"></i> Add Wallet</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-circle-info"></i> Wallet Summary</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:var(--green);font-family:var(--font-head)">6</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Total Wallets</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:var(--blue);font-family:var(--font-head)">$955K</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Total Value</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:var(--amber);font-family:var(--font-head)">2</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Multi-Sig</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:var(--red);font-family:var(--font-head)">1</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Low Balance</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE 3 — TRANSACTIONS
+═══════════════════════════════════════════ -->
+<section id="transactions" class="page">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="fa-solid fa-arrows-left-right"></i> Transaction Ledger</div>
+      <div class="page-sub">Double-entry · FIFO · On-chain verified</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn btn-primary"><i class="fa-solid fa-download"></i> Export CSV</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="pill-row" id="txFilter" style="margin-bottom:0">
+      <span class="pill active" onclick="filterPills(this,'txFilter')">All</span>
+      <span class="pill" onclick="filterPills(this,'txFilter')">Send</span>
+      <span class="pill" onclick="filterPills(this,'txFilter')">Receive</span>
+      <span class="pill" onclick="filterPills(this,'txFilter')">Swap</span>
+      <span class="pill" onclick="filterPills(this,'txFilter')">Stake</span>
+      <span class="pill" onclick="filterPills(this,'txFilter')">Failed</span>
+    </div>
+    <div class="pill-row" id="chainFilter" style="margin-bottom:0">
+      <span class="pill active" onclick="filterPills(this,'chainFilter')">All Chains</span>
+      <span class="pill" onclick="filterPills(this,'chainFilter')">ETH</span>
+      <span class="pill" onclick="filterPills(this,'chainFilter')">BTC</span>
+      <span class="pill" onclick="filterPills(this,'chainFilter')">SOL</span>
+      <span class="pill" onclick="filterPills(this,'chainFilter')">BNB</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Hash</th><th>Type</th><th>Chain</th><th>From</th><th>To</th><th>Amount</th><th>USD Value</th><th>Fee</th><th>Block</th><th>Status</th><th>Time</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">0x3a8f…d91c</td>
+            <td><span class="badge badge-blue">Send</span></td>
+            <td><span class="badge badge-purple">ETH</span></td>
+            <td class="mono">Treasury</td><td class="mono">0xB9…7C</td>
+            <td>1.42 ETH</td><td>$5,112</td>
+            <td class="mono" style="color:var(--text3)">0.0008 ETH</td>
+            <td class="mono" style="color:var(--text3)">19,847,221</td>
+            <td><span class="badge badge-green"><span class="dot dot-green"></span>Confirmed</span></td>
+            <td style="color:var(--text3);font-size:11px">2m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0xf72b…a034</td>
+            <td><span class="badge badge-green">Receive</span></td>
+            <td><span class="badge badge-amber">BTC</span></td>
+            <td class="mono">0xC4…11</td><td class="mono">Reserve</td>
+            <td>0.075 BTC</td><td>$4,830</td>
+            <td class="mono" style="color:var(--text3)">0.00002 BTC</td>
+            <td class="mono" style="color:var(--text3)">840,912</td>
+            <td><span class="badge badge-amber"><span class="dot dot-amber"></span>Pending</span></td>
+            <td style="color:var(--text3);font-size:11px">5m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0x91ce…5b72</td>
+            <td><span class="badge badge-gray">Swap</span></td>
+            <td><span class="badge badge-purple">ETH</span></td>
+            <td class="mono">Ops</td><td class="mono">Ops</td>
+            <td>320 USDT</td><td>$320</td>
+            <td class="mono" style="color:var(--text3)">0.0012 ETH</td>
+            <td class="mono" style="color:var(--text3)">19,847,195</td>
+            <td><span class="badge badge-green"><span class="dot dot-green"></span>Confirmed</span></td>
+            <td style="color:var(--text3);font-size:11px">8m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0x44da…c28f</td>
+            <td><span class="badge badge-blue">Send</span></td>
+            <td><span class="badge badge-green">SOL</span></td>
+            <td class="mono">Dev</td><td class="mono">0xH8…6A</td>
+            <td>0.5 SOL</td><td>$37</td>
+            <td class="mono" style="color:var(--text3)">0.000005 SOL</td>
+            <td class="mono" style="color:var(--text3)">—</td>
+            <td><span class="badge badge-red"><span class="dot dot-red"></span>Failed</span></td>
+            <td style="color:var(--text3);font-size:11px">12m ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0x18bc…e321</td>
+            <td><span class="badge badge-purple">Stake</span></td>
+            <td><span class="badge badge-purple">ETH</span></td>
+            <td class="mono">Treasury</td><td class="mono">Validator</td>
+            <td>32 ETH</td><td>$115,200</td>
+            <td class="mono" style="color:var(--text3)">0.002 ETH</td>
+            <td class="mono" style="color:var(--text3)">19,847,100</td>
+            <td><span class="badge badge-green"><span class="dot dot-green"></span>Confirmed</span></td>
+            <td style="color:var(--text3);font-size:11px">1h ago</td>
+          </tr>
+          <tr>
+            <td class="mono">0x72ac…f581</td>
+            <td><span class="badge badge-green">Receive</span></td>
+            <td><span class="badge badge-amber">BNB</span></td>
+            <td class="mono">Exchange</td><td class="mono">Ops</td>
+            <td>50 BNB</td><td>$13,000</td>
+            <td class="mono" style="color:var(--text3)">0.001 BNB</td>
+            <td class="mono" style="color:var(--text3)">38,119,204</td>
+            <td><span class="badge badge-green"><span class="dot dot-green"></span>Confirmed</span></td>
+            <td style="color:var(--text3);font-size:11px">2h ago</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE 4 — SECURITY
+═══════════════════════════════════════════ -->
+<section id="security" class="page">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="fa-solid fa-shield-halved"></i> Security &amp; Compliance</div>
+      <div class="page-sub">AML · KYC · OFAC · Risk Analysis</div>
+    </div>
+    <button class="btn btn-primary"><i class="fa-solid fa-rotate"></i> Run Audit</button>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-circle-exclamation" style="color:var(--red)"></i> Critical Flags</div>
+      <div class="stat-val" style="color:var(--red)">2</div>
+      <div class="stat-meta">Immediate action required</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i> Warnings</div>
+      <div class="stat-val" style="color:var(--amber)">3</div>
+      <div class="stat-meta">Review within 72h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Cleared</div>
+      <div class="stat-val" style="color:var(--green)">21</div>
+      <div class="stat-meta">All clear</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-id-card"></i> KYC Verified</div>
+      <div class="stat-val">87%</div>
+      <div class="stat-meta">of active wallets</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="card-head" style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:7px"><i class="fa-solid fa-circle-exclamation" style="color:var(--red)"></i> Critical Alerts</div>
+      <div class="alert alert-critical">
+        <div class="alert-icon"><i class="fa-solid fa-radiation"></i></div>
+        <div>
+          <div class="alert-title">Sanctioned Address Proximity</div>
+          <div class="alert-desc">Wallet 0xB9…7C transacted with an OFAC-flagged address within 2 hops. Immediate review required.</div>
+        </div>
+      </div>
+      <div class="alert alert-critical">
+        <div class="alert-icon"><i class="fa-solid fa-id-card-clip"></i></div>
+        <div>
+          <div class="alert-title">KYC Incomplete — High Value Wallet</div>
+          <div class="alert-desc">Reserve Cold holds $241K with incomplete KYC documentation. Regulatory breach risk within 48h.</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card-head" style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:7px"><i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i> Warnings</div>
+      <div class="alert alert-warning">
+        <div class="alert-icon"><i class="fa-solid fa-shuffle"></i></div>
+        <div>
+          <div class="alert-title">Unusual Cross-Chain Activity</div>
+          <div class="alert-desc">3 rapid bridge transactions (ETH→BNB→SOL) in under 10 minutes. Possible layering pattern.</div>
+        </div>
+      </div>
+      <div class="alert alert-warning">
+        <div class="alert-icon"><i class="fa-solid fa-key"></i></div>
+        <div>
+          <div class="alert-title">Private Key Rotation Overdue</div>
+          <div class="alert-desc">Operations wallet last rotated 180+ days ago. Policy requires rotation every 90 days.</div>
+        </div>
+      </div>
+      <div class="alert alert-warning">
+        <div class="alert-icon"><i class="fa-solid fa-coins"></i></div>
+        <div>
+          <div class="alert-title">Large Unstaked ETH Balance</div>
+          <div class="alert-desc">45.3 ETH sitting idle in Treasury Main. Consider staking or cold transfer per policy.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-ok" style="margin-top:4px">
+    <div class="alert-icon"><i class="fa-solid fa-check-double"></i></div>
+    <div>
+      <div class="alert-title">Multi-Sig Threshold Met — Payroll Pool</div>
+      <div class="alert-desc">3/5 signatories confirmed. All transaction approvals within policy. No anomalies detected.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-list-check"></i> Compliance Checklist</div></div>
+    <table>
+      <thead><tr><th>Control</th><th>Standard</th><th>Status</th><th>Last Checked</th></tr></thead>
+      <tbody>
+        <tr><td>OFAC Screening</td><td>US Treasury</td><td><span class="badge badge-green">Pass</span></td><td class="mono" style="color:var(--text3)">Today</td></tr>
+        <tr><td>AML Transaction Monitoring</td><td>FATF</td><td><span class="badge badge-amber">Review</span></td><td class="mono" style="color:var(--text3)">2d ago</td></tr>
+        <tr><td>KYC Verification</td><td>MAS / FinCEN</td><td><span class="badge badge-red">Fail</span></td><td class="mono" style="color:var(--text3)">Today</td></tr>
+        <tr><td>Travel Rule (FATF)</td><td>FATF R.16</td><td><span class="badge badge-green">Pass</span></td><td class="mono" style="color:var(--text3)">1d ago</td></tr>
+        <tr><td>Key Rotation Policy</td><td>Internal</td><td><span class="badge badge-red">Fail</span></td><td class="mono" style="color:var(--text3)">Today</td></tr>
+        <tr><td>Multi-Sig Threshold</td><td>Internal</td><td><span class="badge badge-green">Pass</span></td><td class="mono" style="color:var(--text3)">Today</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE 5 — ARCHITECTURE
+═══════════════════════════════════════════ -->
+<section id="architecture" class="page">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="fa-solid fa-network-wired"></i> System Architecture</div>
+      <div class="page-sub">Cryptocurrency Wallet System — Component Design</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-layer-group"></i> Wallet Layer Stack</div></div>
+    <div class="flow-row">
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--green)"><i class="fa-solid fa-mobile-screen"></i></span>
+        <div class="fn-label">User Layer</div>
+        <div class="fn-sub">App / Web UI</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--blue)"><i class="fa-solid fa-shield-halved"></i></span>
+        <div class="fn-label">API Gateway</div>
+        <div class="fn-sub">Auth + Rate Limit</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--amber)"><i class="fa-solid fa-wallet"></i></span>
+        <div class="fn-label">Wallet Service</div>
+        <div class="fn-sub">Key Mgmt / CRUD</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--purple)"><i class="fa-solid fa-lock"></i></span>
+        <div class="fn-label">HSM / Vault</div>
+        <div class="fn-sub">Secure Key Store</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--teal)"><i class="fa-solid fa-link"></i></span>
+        <div class="fn-label">Blockchain Node</div>
+        <div class="fn-sub">ETH / BTC / SOL</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-arrows-spin"></i> Transaction Lifecycle</div></div>
+    <div class="flow-row">
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--green)"><i class="fa-solid fa-pencil"></i></span>
+        <div class="fn-label">1. Create</div>
+        <div class="fn-sub">Build raw txn</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--blue)"><i class="fa-solid fa-signature"></i></span>
+        <div class="fn-label">2. Sign</div>
+        <div class="fn-sub">Private key sig</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--purple)"><i class="fa-solid fa-check-double"></i></span>
+        <div class="fn-label">3. Validate</div>
+        <div class="fn-sub">Multi-sig check</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--amber)"><i class="fa-solid fa-paper-plane"></i></span>
+        <div class="fn-label">4. Broadcast</div>
+        <div class="fn-sub">Submit to node</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--teal)"><i class="fa-solid fa-clock"></i></span>
+        <div class="fn-label">5. Confirm</div>
+        <div class="fn-sub">Block mined</div>
+      </div>
+      <div class="flow-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="flow-node">
+        <span class="fn-icon" style="color:var(--green)"><i class="fa-solid fa-database"></i></span>
+        <div class="fn-label">6. Record</div>
+        <div class="fn-sub">Update ledger</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-key"></i> Key Management Design</div></div>
+      <div class="arch-layer">
+        <div class="arch-layer-icon" style="background:var(--green-dim);color:var(--green)"><i class="fa-solid fa-seedling"></i></div>
+        <div>
+          <div class="arch-layer-name">Key Generation</div>
+          <div class="arch-layer-desc">BIP-39 Mnemonic · BIP-44 HD Derivation</div>
+        </div>
+        <span class="badge badge-green arch-layer-badge">BIP-44</span>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-icon" style="background:var(--blue-dim);color:var(--blue)"><i class="fa-solid fa-microchip"></i></div>
+        <div>
+          <div class="arch-layer-name">Key Storage</div>
+          <div class="arch-layer-desc">Hardware Security Module (HSM)</div>
+        </div>
+        <span class="badge badge-blue arch-layer-badge">FIPS 140-2</span>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-icon" style="background:var(--amber-dim);color:var(--amber)"><i class="fa-solid fa-rotate"></i></div>
+        <div>
+          <div class="arch-layer-name">Key Rotation</div>
+          <div class="arch-layer-desc">Automatic every 90 days</div>
+        </div>
+        <span class="badge badge-amber arch-layer-badge">90d Policy</span>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-icon" style="background:var(--purple-dim);color:var(--purple)"><i class="fa-solid fa-puzzle-piece"></i></div>
+        <div>
+          <div class="arch-layer-name">Backup</div>
+          <div class="arch-layer-desc">Shamir's Secret Sharing (3-of-5)</div>
+        </div>
+        <span class="badge badge-purple arch-layer-badge">SSS</span>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-icon" style="background:var(--green-dim);color:var(--green)"><i class="fa-solid fa-people-group"></i></div>
+        <div>
+          <div class="arch-layer-name">Multi-Sig</div>
+          <div class="arch-layer-desc">Threshold ECDSA · Gnosis Safe 3/5</div>
+        </div>
+        <span class="badge badge-green arch-layer-badge">tECDSA</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-sitemap"></i> Supported Chains</div></div>
+      <div class="bar-row">
+        <span class="bar-label">Ethereum</span>
+        <div class="bar-track"><div class="bar-fill" style="width:85%;background:var(--purple)"></div></div>
+        <span class="bar-pct">EVM</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Bitcoin</span>
+        <div class="bar-track"><div class="bar-fill" style="width:90%;background:var(--amber)"></div></div>
+        <span class="bar-pct">UTXO</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">BNB Chain</span>
+        <div class="bar-track"><div class="bar-fill" style="width:72%;background:var(--blue)"></div></div>
+        <span class="bar-pct">EVM</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Solana</span>
+        <div class="bar-track"><div class="bar-fill" style="width:65%;background:var(--green)"></div></div>
+        <span class="bar-pct">PoH</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Polygon</span>
+        <div class="bar-track"><div class="bar-fill" style="width:55%;background:var(--purple)"></div></div>
+        <span class="bar-pct">EVM L2</span>
+      </div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fa-solid fa-server" style="color:var(--green)"></i> Infrastructure</div>
+        <table>
+          <thead><tr><th>Component</th><th>Technology</th></tr></thead>
+          <tbody>
+            <tr><td style="font-size:12px">Node Provider</td><td class="mono" style="color:var(--text2)">Infura / Alchemy</td></tr>
+            <tr><td style="font-size:12px">Indexer</td><td class="mono" style="color:var(--text2)">The Graph</td></tr>
+            <tr><td style="font-size:12px">Price Feed</td><td class="mono" style="color:var(--text2)">Chainlink Oracles</td></tr>
+            <tr><td style="font-size:12px">DB</td><td class="mono" style="color:var(--text2)">PostgreSQL + Redis</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE 6 — REPORTS
+═══════════════════════════════════════════ -->
+<section id="reports" class="page">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="fa-solid fa-file-lines"></i> Reports &amp; Exports</div>
+      <div class="page-sub">Period: Jan – May 2025 · IFRS Compliant</div>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-flag" style="color:var(--red)"></i> Compliance Status</div>
+      <div class="stat-val" style="color:var(--red)">⚠ 2</div>
+      <div class="stat-meta">Critical flags active</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-scale-balanced"></i> Balance Sheet</div>
+      <div class="stat-val">$955K</div>
+      <div class="stat-meta">As at May 12, 2025</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-receipt"></i> Total Transactions</div>
+      <div class="stat-val">1,204</div>
+      <div class="stat-meta">Jan – May 2025</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label"><i class="fa-solid fa-check-circle" style="color:var(--green)"></i> OFAC Cleared</div>
+      <div class="stat-val" style="color:var(--green)">21</div>
+      <div class="stat-meta">Transactions screened</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-download"></i> Available Downloads</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">Balance Sheet</div>
+            <div style="font-size:11px;color:var(--text3)">As at May 12, 2025 · IFRS / IAS 38</div>
+          </div>
+          <button class="btn"><i class="fa-solid fa-file-excel"></i> .xlsx</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">P&amp;L Statement</div>
+            <div style="font-size:11px;color:var(--text3)">Jan 1 – May 12, 2025 · IFRS</div>
+          </div>
+          <button class="btn"><i class="fa-solid fa-file-excel"></i> .xlsx</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">General Ledger</div>
+            <div style="font-size:11px;color:var(--text3)">All accounts · Double-entry basis</div>
+          </div>
+          <button class="btn"><i class="fa-solid fa-file-csv"></i> .csv</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">Full Audit Report</div>
+            <div style="font-size:11px;color:var(--text3)">P&amp;L + Balance Sheet + Compliance</div>
+          </div>
+          <button class="btn btn-primary"><i class="fa-solid fa-file-pdf"></i> .pdf</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-head-left"><i class="fa-solid fa-chart-bar"></i> P&amp;L Summary</div></div>
+      <table>
+        <thead><tr><th>Account</th><th>Debit</th><th>Credit</th></tr></thead>
+        <tbody>
+          <tr><td>Crypto Assets (ETH)</td><td style="color:var(--green)">$162,800</td><td>—</td></tr>
+          <tr><td>Crypto Assets (BTC)</td><td style="color:var(--green)">$241,000</td><td>—</td></tr>
+          <tr><td>Staking Rewards</td><td style="color:var(--green)">$3,200</td><td>—</td></tr>
+          <tr><td>Gas Fees (Expense)</td><td>—</td><td style="color:var(--red)">$1,840</td></tr>
+          <tr><td>Exchange Fees</td><td>—</td><td style="color:var(--red)">$520</td></tr>
+          <tr><td>Unrealised P&amp;L</td><td style="color:var(--green)">$28,400</td><td>—</td></tr>
+          <tr>
+            <td style="font-weight:600">Net Position</td>
+            <td colspan="2" style="font-weight:600;color:var(--green);text-align:right">+$433,040</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MOBILE NAV ═══ -->
+<nav class="mobile-nav">
+  <button class="mobile-nav-btn active" onclick="switchTabMobile(this,'overview')">
+    <i class="fa-solid fa-chart-line"></i>
+    <span>Overview</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="switchTabMobile(this,'wallets')">
+    <i class="fa-solid fa-wallet"></i>
+    <span>Wallets</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="switchTabMobile(this,'transactions')">
+    <i class="fa-solid fa-repeat"></i>
+    <span>Txns</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="switchTabMobile(this,'security')">
+    <i class="fa-solid fa-shield-halved"></i>
+    <span>Security</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="switchTabMobile(this,'architecture')">
+    <i class="fa-solid fa-network-wired"></i>
+    <span>Arch</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="switchTabMobile(this,'reports')">
+    <i class="fa-solid fa-file-lines"></i>
+    <span>Reports</span>
+  </button>
+</nav>
+
+<!-- ═══ FOOTER ═══ -->
+<div class="footer">
+  CryptoWallet System Design · Prototype · Made with ♥ · Air University Islamabad
+</div>
+
+<script>
+  /* ── Tab switching ── */
+  function switchTab(el, pageId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    if (el) el.classList.add('active');
+    var page = document.getElementById(pageId);
+    if (page) page.classList.add('active');
+    document.querySelectorAll('.mobile-nav-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('onclick') && b.getAttribute('onclick').includes(pageId));
+    });
+  }
+
+  function switchTabMobile(el, pageId) {
+    document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    var page = document.getElementById(pageId);
+    if (page) page.classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.getAttribute('onclick') && t.getAttribute('onclick').includes(pageId));
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── Pill filter ── */
+  function filterPills(el, groupId) {
+    document.querySelectorAll('#' + groupId + ' .pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  /* ── Monthly chart ── */
+  (function buildChart() {
+    var data = [
+      { in: 55, out: 40 },
+      { in: 65, out: 50 },
+      { in: 72, out: 58 },
+      { in: 80, out: 65 },
+      { in: 90, out: 70 },
+      { in: 100, out: 82 }
+    ];
+    var container = document.getElementById('monthlyChart');
+    if (!container) return;
+    data.forEach(function(d) {
+      var wrap = document.createElement('div');
+      wrap.className = 'mini-bar-wrap';
+      var bIn = document.createElement('div');
+      bIn.className = 'mini-bar bar-in';
+      bIn.style.height = d.in + '%';
+      bIn.title = 'Inflow ' + d.in + 'K';
+      var bOut = document.createElement('div');
+      bOut.className = 'mini-bar bar-out';
+      bOut.style.height = d.out + '%';
+      bOut.title = 'Outflow ' + d.out + 'K';
+      wrap.appendChild(bIn);
+      wrap.appendChild(bOut);
+      container.appendChild(wrap);
+    });
+  })();
+</script>
+</body>
+</html>
